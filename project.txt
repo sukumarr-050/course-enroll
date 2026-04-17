@@ -1,0 +1,172 @@
+project/
+│
+├── backend/
+│   ├── server.js
+│   ├── models/User.js
+│   ├── routes/auth.js
+│   └── config/db.js
+│
+└── frontend/
+    ├── src/
+    │   ├── App.js
+    │   ├── Login.js
+    │   └── Register.js
+cd backend
+npm init -y
+npm install express mongoose cors bcryptjs jsonwebtoken
+const mongoose = require("mongoose");
+
+const connectDB = async () => {
+  try {
+    await mongoose.connect("mongodb://127.0.0.1:27017/authDB");
+    console.log("MongoDB Connected");
+  } catch (err) {
+    console.error(err);
+    process.exit(1);
+  }
+};
+
+module.exports = connectDB;
+const mongoose = require("mongoose");
+
+const UserSchema = new mongoose.Schema({
+  name: String,
+  email: String,
+  password: String,
+});
+
+module.exports = mongoose.model("User", UserSchema);
+const express = require("express");
+const router = express.Router();
+const User = require("../models/User");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+
+// REGISTER
+router.post("/register", async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+
+    let user = await User.findOne({ email });
+    if (user) return res.status(400).json({ msg: "User already exists" });
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    user = new User({
+      name,
+      email,
+      password: hashedPassword,
+    });
+
+    await user.save();
+    res.json({ msg: "User registered successfully" });
+
+  } catch (err) {
+    res.status(500).send("Server error");
+  }
+});
+
+// LOGIN
+router.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) return res.status(400).json({ msg: "Invalid credentials" });
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ msg: "Invalid credentials" });
+
+    const token = jwt.sign({ id: user._id }, "secretKey");
+
+    res.json({ token });
+
+  } catch (err) {
+    res.status(500).send("Server error");
+  }
+});
+
+module.exports = router;
+const express = require("express");
+const cors = require("cors");
+const connectDB = require("./config/db");
+
+const app = express();
+
+connectDB();
+
+app.use(cors());
+app.use(express.json());
+
+app.use("/api/auth", require("./routes/auth"));
+
+app.listen(5000, () => console.log("Server running on port 5000"));
+npx create-react-app frontend
+cd frontend
+npm install axios react-router-dom
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Login from "./Login";
+import Register from "./Register";
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+export default App;
+import { useState } from "react";
+import axios from "axios";
+
+function Register() {
+  const [form, setForm] = useState({ name: "", email: "", password: "" });
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    await axios.post("http://localhost:5000/api/auth/register", form);
+    alert("Registered Successfully");
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <h2>Register</h2>
+      <input placeholder="Name" onChange={e => setForm({...form, name: e.target.value})} />
+      <input placeholder="Email" onChange={e => setForm({...form, email: e.target.value})} />
+      <input type="password" placeholder="Password" onChange={e => setForm({...form, password: e.target.value})} />
+      <button type="submit">Register</button>
+    </form>
+  );
+}
+
+export default Register;
+import { useState } from "react";
+import axios from "axios";
+
+function Login() {
+  const [form, setForm] = useState({ email: "", password: "" });
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const res = await axios.post("http://localhost:5000/api/auth/login", form);
+    localStorage.setItem("token", res.data.token);
+    alert("Login Successful");
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <h2>Login</h2>
+      <input placeholder="Email" onChange={e => setForm({...form, email: e.target.value})} />
+      <input type="password" placeholder="Password" onChange={e => setForm({...form, password: e.target.value})} />
+      <button type="submit">Login</button>
+    </form>
+  );
+}
+
+export default Login;
+node server.js
+[10:18 am, 17/04/2026] 𝙎𝙍𝙄 𝙃𝙐𝙉: npm start
